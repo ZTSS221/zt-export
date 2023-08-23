@@ -21,7 +21,7 @@ app.post("", (req, res) => {
       const browser = await puppeteer.launch({
         // executablePath: '/usr/bin/chromium-browser',
         // args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: "new",
+        headless: false,
       });
 
       let concatenatedString = "";
@@ -36,7 +36,6 @@ app.post("", (req, res) => {
          <meta charset="UTF-8" />
        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>ZT Gantt</title>
-
         `;
       let content =
         htmlContent +
@@ -81,69 +80,78 @@ app.post("", (req, res) => {
 
       if (req.body.fileType === "png") {
         const contentMetrics = await page.evaluate(() => {
-          const sidebar = document.querySelector(".zt-gantt-left-cell");
-          const timeLine = document.querySelector(".zt-gantt-right-cell");
-          const sidebarPart1 = document.querySelector(
-            ".sidebar-head-cell-container"
-          );
-          const sidebarPart2 = document.querySelector(".zt-gantt-grid-data");
+          const sidebar = document.querySelector("#zt-gantt-grid-left-data");
+          const timeLine = document.querySelector("#zt-gantt-right-cell");
+
+          let isVerScroll = document.querySelector("#zt-gantt-ver-scroll-cell");
+          let verScrollWidth = isVerScroll ? isVerScroll.offsetWidth : 0;
+
+          const body = document.body;
+          body.firstChild.style.width = "auto";
+          body.firstChild.style.height = "auto";
+
           return {
             totalwid: sidebar.scrollWidth + timeLine.scrollWidth,
-            totalheight: sidebarPart2.scrollHeight + sidebarPart1.scrollHeight,
+            totalheight: sidebar.scrollHeight,
+            verScrollWidth: verScrollWidth,
           };
         });
+
         await page.setViewport({
-          width: contentMetrics.totalwid,
+          width: contentMetrics.totalwid + contentMetrics.verScrollWidth,
           height: contentMetrics.totalheight + 100,
         });
         response = await page.screenshot({ fullPage: true });
       }
+
       if (req.body.fileType === "pdf") {
         const contentMetrics = await page.evaluate(() => {
-          const sidebar = document.querySelector(".zt-gantt-left-cell");
-          const timeLine = document.querySelector(".zt-gantt-right-cell");
+          const sidebar = document.querySelector("#zt-gantt-grid-left-data");
+          const timeLine = document.querySelector("#zt-gantt-right-cell");
+          // const timeLineData = document.querySelector("#zt-gantt-scale-data");
+          // timeLine.style.width = timeLineData.scrollWidth+"px";
+          // timeLine.style.overflow = "unset";
           const body = document.body;
-          let wd = body.clientWidth;
+
+          let isVerScroll = document.querySelector("#zt-gantt-ver-scroll-cell");
+          let verScrollWidth = isVerScroll ? isVerScroll.offsetWidth : 0;
+
           body.firstChild.style.width = "auto";
           body.firstChild.style.height = "auto";
-          if (timeLine.scrollWidth > timeLine.clientWidth) {
-            var scrol = timeLine.scrollWidth + sidebar.clientWidth;
-            sc = parseFloat(wd / scrol);
-          }
-          // else if (timeLine.scrollWidth < timeLine.clientWidth) {
-          //     const totalWidth = sidebar.scrollWidth + timeLine.scrollWidth;
-          //     sc = (793.92) / totalWidth;
-          // }
-          const sidebarPart1 = document.querySelector(
-            ".sidebar-head-cell-container"
-          );
-          const sidebarPart2 = document.querySelector(".zt-gantt-grid-data");
+          body.margin = "0";
+          body.margin = "0";
 
           return {
-            bodywid: wd,
-            sc: sc,
-            sidepart1: sidebarPart1.scrollHeight,
-            sidepart2: sidebarPart2.scrollHeight,
             timeLine: timeLine.scrollHeight,
-            scale: sc,
             wid: sidebar.clientWidth + timeLine.clientWidth,
-            totalwid: sidebar.scrollWidth + timeLine.scrollWidth,
-            totalheight: sidebarPart2.scrollHeight + sidebarPart1.scrollHeight,
+            totalwid: sidebar.offsetWidth + timeLine.scrollWidth,
+            totalheight: sidebar.scrollHeight,
+            verScrollWidth: verScrollWidth,
           };
         });
         if (contentMetrics.totalwid > 1924) {
+          console.log(contentMetrics.verScrollWidth, "verScrollWidth>>>>>");
           response = await page.pdf({
             height: contentMetrics.totalheight + 100,
-            width: contentMetrics.totalwid - contentMetrics.totalwid * 0.33,
+            width:
+              contentMetrics.totalwid +
+              contentMetrics.verScrollWidth -
+              contentMetrics.totalwid * 0.33,
             printBackground: true,
           });
         } else {
+          console.log(contentMetrics.verScrollWidth, "verScrollWidth??????");
+          console.log(
+            contentMetrics.totalwid,
+            contentMetrics.verScrollWidth,
+            "contentMetrics.totalwid + contentMetrics.verScrollWidth"
+          );
           response = await page.pdf({
             height: contentMetrics.totalheight + 100,
-            width: contentMetrics.totalwid + 30,
+            width: contentMetrics.totalwid + contentMetrics.verScrollWidth + 30,
             margin: {
-              right: "10px",
-              left: "10px",
+              right: "10",
+              left: "10",
             },
             printBackground: true,
           });
