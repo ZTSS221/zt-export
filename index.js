@@ -9,25 +9,25 @@ const port = process.env.PORT || 8300;
 app.use(express.json({ limit: "50mb" }));
 app.use(cors());
 
-// var options = {
-//     key: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/privkey.pem'),
-//     cert: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/fullchain.pem')
-// }
-// const httpsServer = https.createServer(options, app);
+var options = {
+    key: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/privkey.pem'),
+    cert: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/fullchain.pem')
+}
+const httpsServer = https.createServer(options, app);
 
 app.post("", (req, res) => {
   (async function () {
     try {
       const browser = await puppeteer.launch({
-        // executablePath: '/usr/bin/chromium-browser',
-        // args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        headless: false,
+        executablePath: '/usr/bin/chromium-browser',
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true,
       });
 
       let concatenatedString = "";
       for (let i = 0; i < req.body?.styles?.length; i++) {
         concatenatedString +=
-          '<link rel="stylesheet" href="' + `${req.body.styles[i]}` + '" />\n';
+          `<link rel="stylesheet" href="${req.body.styles[i]}" />\n`;
       }
       const page = await browser.newPage();
       const htmlContent = `<!DOCTYPE html>
@@ -92,7 +92,7 @@ app.post("", (req, res) => {
 
           return {
             totalwid: sidebar.scrollWidth + timeLine.scrollWidth,
-            totalheight: sidebar.scrollHeight,
+            totalheight: sidebar.scrollHeight + 100,
             verScrollWidth: verScrollWidth,
           };
         });
@@ -108,18 +108,24 @@ app.post("", (req, res) => {
         const contentMetrics = await page.evaluate(() => {
           const sidebar = document.querySelector("#zt-gantt-grid-left-data");
           const timeLine = document.querySelector("#zt-gantt-right-cell");
-          // const timeLineData = document.querySelector("#zt-gantt-scale-data");
-          // timeLine.style.width = timeLineData.scrollWidth+"px";
-          // timeLine.style.overflow = "unset";
+
           const body = document.body;
 
           let isVerScroll = document.querySelector("#zt-gantt-ver-scroll-cell");
+          let isHorScroll = document.querySelector("#zt-gantt-hor-scroll-cell");
+          if(isVerScroll){
+            isVerScroll.classList.add("d-none");
+          }
+          if(isHorScroll){
+            isHorScroll.classList.add("d-none");
+          }
           let verScrollWidth = isVerScroll ? isVerScroll.offsetWidth : 0;
 
           body.firstChild.style.width = "auto";
           body.firstChild.style.height = "auto";
+          body.overflow = 'hidden';
           body.margin = "0";
-          body.margin = "0";
+          body.padding = "0";
 
           return {
             timeLine: timeLine.scrollHeight,
@@ -130,7 +136,6 @@ app.post("", (req, res) => {
           };
         });
         if (contentMetrics.totalwid > 1924) {
-          console.log(contentMetrics.verScrollWidth, "verScrollWidth>>>>>");
           response = await page.pdf({
             height: contentMetrics.totalheight + 100,
             width:
@@ -140,15 +145,11 @@ app.post("", (req, res) => {
             printBackground: true,
           });
         } else {
-          console.log(contentMetrics.verScrollWidth, "verScrollWidth??????");
-          console.log(
-            contentMetrics.totalwid,
-            contentMetrics.verScrollWidth,
-            "contentMetrics.totalwid + contentMetrics.verScrollWidth"
-          );
+          let totalWidth =  contentMetrics.totalwid +
+          contentMetrics.verScrollWidth
           response = await page.pdf({
             height: contentMetrics.totalheight + 100,
-            width: contentMetrics.totalwid + contentMetrics.verScrollWidth + 30,
+            width: totalWidth - (totalWidth * 0.32),
             margin: {
               right: "10",
               left: "10",
@@ -161,15 +162,16 @@ app.post("", (req, res) => {
       res.send(
         response ? { message: "success", data: response } : { message: "error" }
       );
-      // await browser.close();
+      await browser.close();
     } catch (e) {
-      console.log("our error", e);
+      console.log("Internal server error", e);
+      res.status(500).json({ error: 'Internal server error' });
     }
   })();
 });
 
-// httpsServer.listen(port);
+httpsServer.listen(port);
 
-app.listen(port, () => {
-  console.log(`connection setup at port no. ${port} `);
-});
+// app.listen(port,"192.168.0.102", () => {
+//   console.log(`connection setup at port no. ${port} `);
+// });
