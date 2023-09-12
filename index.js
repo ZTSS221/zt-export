@@ -6,21 +6,21 @@ const fs = require("fs-extra");
 
 const app = express();
 const port = process.env.PORT || 8300;
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: "100mb" }));
 app.use(cors());
 
-var options = {
-    key: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/privkey.pem'),
-    cert: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/fullchain.pem')
-}
-const httpsServer = https.createServer(options, app);
+// var options = {
+//     key: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/privkey.pem'),
+//     cert: fs.readFileSync('/etc/letsencrypt/live/zt-gantt.zehntech.net/fullchain.pem')
+// }
+// const httpsServer = https.createServer(options, app);
 
 app.post("", (req, res) => {
   (async function () {
     try {
       const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/chromium-browser',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        // executablePath: '/usr/bin/chromium-browser',
+        // args: ['--no-sandbox', '--disable-setuid-sandbox'],
         headless: true,
       });
 
@@ -133,6 +133,7 @@ app.post("", (req, res) => {
             totalwid: sidebar.offsetWidth + timeLine.scrollWidth,
             totalheight: sidebar.scrollHeight,
             verScrollWidth: verScrollWidth,
+            pdfHeight:pdfHeight,
           };
         });
         if (contentMetrics.totalwid > 1924) {
@@ -143,10 +144,12 @@ app.post("", (req, res) => {
               contentMetrics.verScrollWidth -
               contentMetrics.totalwid * 0.33,
             printBackground: true,
+            timeout: 120000,
           });
         } else {
           let totalWidth =  contentMetrics.totalwid +
           contentMetrics.verScrollWidth
+          console.log(contentMetrics.pdfHeight,"pdfHeight");
           response = await page.pdf({
             height: contentMetrics.totalheight + 100,
             width: totalWidth - (totalWidth * 0.32),
@@ -155,6 +158,7 @@ app.post("", (req, res) => {
               left: "10",
             },
             printBackground: true,
+            timeout: 120000,
           });
         }
       }
@@ -170,8 +174,8 @@ app.post("", (req, res) => {
   })();
 });
 
-httpsServer.listen(port);
+// httpsServer.listen(port);
 
-// app.listen(port,"192.168.0.102", () => {
-//   console.log(`connection setup at port no. ${port} `);
-// });
+app.listen(port,"192.168.0.126", () => {
+  console.log(`connection setup at port no. ${port} `);
+});
